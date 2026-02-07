@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Blog Platform</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #0f0f14;
+  color: white;
+  margin: 0;
+}
+header {
+  background: #16161f;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
+}
+.container {
+  max-width: 900px;
+  margin: auto;
+  padding: 15px;
+}
+input, textarea, button {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: none;
+}
+input, textarea {
+  background: #1e1e2e;
+  color: white;
+}
+button {
+  background: #5b5bff;
+  color: white;
+  cursor: pointer;
+}
+button:hover { background: #7777ff; }
+.post {
+  background: #1a1a28;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+}
+.actions {
+  display: flex;
+  gap: 10px;
+}
+.delete { background: #ff4b4b; }
+.edit { background: #ffa94b; color: black; }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>📝 Платформа блогов</header>
+
+<div class="container">
+
+<!-- АВТОРИЗАЦИЯ -->
+<div id="auth">
+  <h3>Вход</h3>
+  <input id="loginName" placeholder="Имя пользователя">
+  <input id="loginPass" type="password" placeholder="Пароль">
+  <button onclick="login()">Войти</button>
+
+  <h3>Регистрация</h3>
+  <input id="regName" placeholder="Имя пользователя">
+  <input id="regPass" type="password" placeholder="Пароль">
+  <button onclick="register()">Зарегистрироваться</button>
+</div>
+
+<!-- АККАУНТ -->
+<div id="app" class="hidden">
+  <h3>👤 Аккаунт</h3>
+  <p>Вы вошли как: <b id="userName"></b></p>
+  <button onclick="logout()">Выйти</button>
+
+  <hr>
+
+  <h3>Создать статью</h3>
+  <input id="title" placeholder="Заголовок">
+  <textarea id="content" rows="5" placeholder="Текст статьи"></textarea>
+  <button onclick="addPost()">Опубликовать</button>
+
+  <hr>
+
+  <h3>Мои статьи</h3>
+  <div id="posts"></div>
+</div>
+
+</div>
+
+<script>
+let users = JSON.parse(localStorage.getItem("users")) || [];
+let posts = JSON.parse(localStorage.getItem("posts")) || [];
+let currentUser = JSON.parse(localStorage.getItem("currentUser"));
+let editIndex = null;
+
+function save() {
+  localStorage.setItem("users", JSON.stringify(users));
+  localStorage.setItem("posts", JSON.stringify(posts));
+}
+
+function register() {
+  const name = regName.value.trim();
+  const pass = regPass.value.trim();
+  if (!name || !pass) return alert("Заполни поля");
+
+  if (users.find(u => u.name === name)) {
+    return alert("Имя занято");
+  }
+
+  users.push({ name, pass });
+  save();
+  alert("Аккаунт создан");
+}
+
+function login() {
+  const name = loginName.value.trim();
+  const pass = loginPass.value.trim();
+
+  const user = users.find(u => u.name === name && u.pass === pass);
+  if (!user) return alert("Неверные данные");
+
+  currentUser = name;
+  localStorage.setItem("currentUser", JSON.stringify(name));
+  init();
+}
+
+function logout() {
+  localStorage.removeItem("currentUser");
+  location.reload();
+}
+
+function init() {
+  if (!currentUser) return;
+  auth.classList.add("hidden");
+  app.classList.remove("hidden");
+  userName.textContent = currentUser;
+  render();
+}
+
+function addPost() {
+  const title = document.getElementById("title").value.trim();
+  const content = document.getElementById("content").value.trim();
+  if (!title || !content) return alert("Заполни всё");
+
+  if (editIndex === null) {
+    posts.unshift({
+      user: currentUser,
+      title,
+      content,
+      date: new Date().toLocaleString()
+    });
+  } else {
+    posts[editIndex].title = title;
+    posts[editIndex].content = content;
+    editIndex = null;
+  }
+
+  title.value = "";
+  content.value = "";
+  save();
+  render();
+}
+
+function deletePost(i) {
+  if (confirm("Удалить статью?")) {
+    posts.splice(i, 1);
+    save();
+    render();
+  }
+}
+
+function editPost(i) {
+  title.value = posts[i].title;
+  content.value = posts[i].content;
+  editIndex = i;
+}
+
+function render() {
+  postsDiv = document.getElementById("posts");
+  postsDiv.innerHTML = "";
+
+  posts
+    .map((p, i) => ({ ...p, i }))
+    .filter(p => p.user === currentUser)
+    .forEach(p => {
+      postsDiv.innerHTML += `
+      <div class="post">
+        <h2>${p.title}</h2>
+        <small>${p.date}</small>
+        <p>${p.content.replace(/\n/g, "<br>")}</p>
+        <div class="actions">
+          <button class="edit" onclick="editPost(${p.i})">✏</button>
+          <button class="delete" onclick="deletePost(${p.i})">🗑</button>
+        </div>
+      </div>`;
+    });
+}
+
+init();
+</script>
+
+</body>
+</html>
