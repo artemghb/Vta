@@ -12,57 +12,59 @@
 
 <style>
 body {
-  margin:0;
-  font-family:Arial, sans-serif;
-  background:#0f0f14;
-  color:white;
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #0f0f14;
+  color: white;
 }
 header {
-  background:#16161f;
-  padding:15px;
-  text-align:center;
-  font-size:22px;
+  background: #16161f;
+  padding: 15px;
+  text-align: center;
+  font-size: 22px;
 }
 .container {
-  max-width:900px;
-  margin:auto;
-  padding:15px;
+  max-width: 900px;
+  margin: auto;
+  padding: 15px;
 }
 input, textarea, button {
-  width:100%;
-  padding:10px;
-  margin-bottom:10px;
-  border-radius:8px;
-  border:none;
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border: none;
 }
 input, textarea {
-  background:#1e1e2e;
-  color:white;
+  background: #1e1e2e;
+  color: white;
 }
 button {
-  background:#5b5bff;
-  color:white;
-  cursor:pointer;
+  background: #5b5bff;
+  color: white;
+  cursor: pointer;
 }
-button:hover { background:#7777ff; }
+button:hover {
+  background: #7777ff;
+}
 .post {
-  background:#1a1a28;
-  padding:15px;
-  border-radius:10px;
-  margin-bottom:15px;
+  background: #1a1a28;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 15px;
 }
 .comment {
-  background:#222;
-  padding:6px;
-  border-radius:6px;
-  margin-top:5px;
-  font-size:14px;
+  background: #222;
+  padding: 6px;
+  border-radius: 6px;
+  margin-top: 5px;
+  font-size: 14px;
 }
 .admin {
-  background:crimson;
+  background: crimson;
 }
 .hidden {
-  display:none;
+  display: none;
 }
 </style>
 </head>
@@ -76,7 +78,7 @@ button:hover { background:#7777ff; }
 <div id="auth">
   <h3>Вход / Регистрация</h3>
   <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Пароль">
+  <input id="password" type="password" placeholder="Пароль (мин. 6 символов)">
   <button onclick="login()">Войти</button>
   <button onclick="register()">Регистрация</button>
 </div>
@@ -124,16 +126,27 @@ const db = firebase.firestore();
 
 const ADMIN_EMAIL = "admin@admin.com";
 
+/* DOM */
+const authDiv = document.getElementById("auth");
+const appDiv = document.getElementById("app");
+
 /* AUTH STATE */
 auth.onAuthStateChanged(user => {
   if (user) {
     authDiv.style.display = "none";
-    app.classList.remove("hidden");
+    appDiv.classList.remove("hidden");
     userEmail.textContent = user.email;
+
     if (user.email === ADMIN_EMAIL) {
       adminPanel.classList.remove("hidden");
+    } else {
+      adminPanel.classList.add("hidden");
     }
+
     loadPosts();
+  } else {
+    authDiv.style.display = "block";
+    appDiv.classList.add("hidden");
   }
 });
 
@@ -150,35 +163,41 @@ function login() {
 
 function logout() {
   auth.signOut();
-  location.reload();
 }
 
 /* POSTS */
 function addPost() {
-  if (!title.value || !content.value) return alert("Заполни всё");
+  if (!title.value || !content.value) {
+    alert("Заполни все поля");
+    return;
+  }
+
   db.collection("posts").add({
     title: title.value,
     content: content.value,
     author: auth.currentUser.email,
     date: firebase.firestore.FieldValue.serverTimestamp()
   });
+
   title.value = "";
   content.value = "";
 }
 
 function loadPosts() {
-  db.collection("posts").orderBy("date","desc")
-    .onSnapshot(snap => {
+  db.collection("posts").orderBy("date", "desc")
+    .onSnapshot(snapshot => {
       posts.innerHTML = "";
-      snap.forEach(doc => {
+
+      snapshot.forEach(doc => {
         const p = doc.data();
+
         posts.innerHTML += `
         <div class="post">
           <h2>${p.title}</h2>
           <small>${p.author}</small>
           <p>${p.content}</p>
 
-          <input placeholder="Комментарий" id="c-${doc.id}">
+          <input id="c-${doc.id}" placeholder="Комментарий">
           <button onclick="addComment('${doc.id}')">💬 Отправить</button>
 
           ${auth.currentUser.email === ADMIN_EMAIL
@@ -186,42 +205,51 @@ function loadPosts() {
             : ""}
 
           <div id="comments-${doc.id}"></div>
-        </div>`;
+        </div>
+        `;
+
         loadComments(doc.id);
       });
     });
 }
 
 function deletePost(id) {
-  if (!confirm("Удалить статью?")) return;
-  db.collection("posts").doc(id).delete();
+  if (confirm("Удалить статью?")) {
+    db.collection("posts").doc(id).delete();
+  }
 }
 
 /* COMMENTS */
 function addComment(postId) {
-  const input = document.getElementById("c-"+postId);
+  const input = document.getElementById("c-" + postId);
   if (!input.value) return;
+
   db.collection("comments").add({
     post: postId,
     text: input.value,
     author: auth.currentUser.email
   });
+
   input.value = "";
 }
 
 function loadComments(postId) {
-  db.collection("comments").where("post","==",postId)
-    .onSnapshot(snap => {
-      const el = document.getElementById("comments-"+postId);
-      el.innerHTML = "";
-      snap.forEach(c => {
-        el.innerHTML += `
-        <div class="comment">
-          <b>${c.data().author}:</b> ${c.data().text}
-          ${auth.currentUser.email === ADMIN_EMAIL
-            ? `<button onclick="deleteComment('${c.id}')">🗑</button>`
-            : ""}
-        </div>`;
+  db.collection("comments")
+    .where("post", "==", postId)
+    .onSnapshot(snapshot => {
+      const box = document.getElementById("comments-" + postId);
+      box.innerHTML = "";
+
+      snapshot.forEach(doc => {
+        const c = doc.data();
+        box.innerHTML += `
+          <div class="comment">
+            <b>${c.author}:</b> ${c.text}
+            ${auth.currentUser.email === ADMIN_EMAIL
+              ? `<button onclick="deleteComment('${doc.id}')">🗑</button>`
+              : ""}
+          </div>
+        `;
       });
     });
 }
