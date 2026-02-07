@@ -5,7 +5,7 @@
 <title>Blog Platform</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Firebase compat SDK -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -14,248 +14,163 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
-  background: #0f0f14;
+  background-image: url("images/animals.png");
+  background-repeat: repeat;
+  background-size: 300px;
   color: white;
 }
+
 header {
-  background: #16161f;
-  padding: 15px;
+  background-image: url("images/sakura.jpg");
+  background-size: cover;
+  background-position: center;
+  padding: 40px;
   text-align: center;
-  font-size: 22px;
+  font-size: 28px;
+  font-weight: bold;
+  text-shadow: 0 3px 8px black;
 }
+
 .container {
   max-width: 900px;
-  margin: auto;
-  padding: 15px;
+  margin: 20px auto;
+  background: rgba(0,0,0,0.65);
+  padding: 20px;
+  border-radius: 20px;
 }
+
 input, textarea, button {
   width: 100%;
   padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 8px;
+  margin-top: 8px;
+  border-radius: 10px;
   border: none;
 }
-input, textarea {
-  background: #1e1e2e;
-  color: white;
-}
+
 button {
-  background: #5b5bff;
-  color: white;
+  background: #ff8ccf;
+  font-weight: bold;
   cursor: pointer;
 }
-button:hover {
-  background: #7777ff;
-}
+
 .post {
-  background: #1a1a28;
+  background: rgba(30,30,45,0.95);
   padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 15px;
+  border-radius: 14px;
+  margin-top: 15px;
 }
+
 .comment {
-  background: #222;
-  padding: 6px;
-  border-radius: 6px;
-  margin-top: 5px;
   font-size: 14px;
+  opacity: 0.9;
+  margin-top: 5px;
 }
-.admin {
-  background: crimson;
-}
+
 .hidden {
   display: none;
 }
 </style>
 </head>
+
 <body>
 
-<header>📝 Blog Platform</header>
+<header>🌸 Blog Platform 🌸</header>
 
-<div class="container">
-
-<!-- AUTH -->
-<div id="auth">
-  <h3>Вход / Регистрация</h3>
+<div class="container" id="auth">
+  <h2>Вход / Регистрация</h2>
   <input id="email" placeholder="Email">
-  <input id="password" type="password" placeholder="Пароль (мин. 6 символов)">
-  <button onclick="login()">Войти</button>
+  <input id="password" type="password" placeholder="Пароль (6+)">
   <button onclick="register()">Регистрация</button>
+  <button onclick="login()">Войти</button>
 </div>
 
-<!-- APP -->
-<div id="app" class="hidden">
+<div class="container hidden" id="app">
   <p>👤 <span id="userEmail"></span></p>
   <button onclick="logout()">Выйти</button>
 
   <div id="adminPanel" class="hidden">
-    <h3>👑 Админ-панель</h3>
-    <p>Вы администратор</p>
+    <h3>👑 Админ панель</h3>
+    <input id="title" placeholder="Заголовок">
+    <textarea id="content" placeholder="Текст статьи"></textarea>
+    <button onclick="addPost()">Опубликовать</button>
   </div>
 
-  <hr>
-
-  <h3>Создать статью</h3>
-  <input id="title" placeholder="Заголовок">
-  <textarea id="content" rows="5" placeholder="Текст статьи"></textarea>
-  <button onclick="addPost()">Опубликовать</button>
-
-  <hr>
-
-  <h3>🌍 Публичные статьи</h3>
+  <h2>📚 Статьи</h2>
   <div id="posts"></div>
 </div>
 
-</div>
-
 <script>
-/* 🔥 FIREBASE CONFIG */
 const firebaseConfig = {
   apiKey: "AIzaSyD26cvWaB4qeX5lAACiIEUMwoIGxSZv4SA",
   authDomain: "artem-c3ba1.firebaseapp.com",
   projectId: "artem-c3ba1",
-  storageBucket: "artem-c3ba1.firebasestorage.app",
-  messagingSenderId: "270844774844",
-  appId: "1:270844774844:web:fb449e4853d8a4202dc3b9"
 };
 
 firebase.initializeApp(firebaseConfig);
-
 const auth = firebase.auth();
 const db = firebase.firestore();
 
 const ADMIN_EMAIL = "admin@admin.com";
 
-/* DOM */
 const authDiv = document.getElementById("auth");
 const appDiv = document.getElementById("app");
+const adminPanel = document.getElementById("adminPanel");
+const userEmail = document.getElementById("userEmail");
 
-/* AUTH STATE */
 auth.onAuthStateChanged(user => {
   if (user) {
-    authDiv.style.display = "none";
+    authDiv.classList.add("hidden");
     appDiv.classList.remove("hidden");
     userEmail.textContent = user.email;
-
-    if (user.email === ADMIN_EMAIL) {
-      adminPanel.classList.remove("hidden");
-    } else {
-      adminPanel.classList.add("hidden");
-    }
-
+    if (user.email === ADMIN_EMAIL) adminPanel.classList.remove("hidden");
     loadPosts();
   } else {
-    authDiv.style.display = "block";
+    authDiv.classList.remove("hidden");
     appDiv.classList.add("hidden");
   }
 });
 
-/* AUTH FUNCTIONS */
 function register() {
-  auth.createUserWithEmailAndPassword(email.value, password.value)
-    .catch(e => alert(e.message));
+  auth.createUserWithEmailAndPassword(
+    email.value,
+    password.value
+  ).catch(alert);
 }
 
 function login() {
-  auth.signInWithEmailAndPassword(email.value, password.value)
-    .catch(e => alert(e.message));
+  auth.signInWithEmailAndPassword(
+    email.value,
+    password.value
+  ).catch(alert);
 }
 
 function logout() {
   auth.signOut();
 }
 
-/* POSTS */
 function addPost() {
-  if (!title.value || !content.value) {
-    alert("Заполни все поля");
-    return;
-  }
-
   db.collection("posts").add({
     title: title.value,
     content: content.value,
     author: auth.currentUser.email,
-    date: firebase.firestore.FieldValue.serverTimestamp()
+    created: Date.now()
   });
-
-  title.value = "";
-  content.value = "";
 }
 
 function loadPosts() {
-  db.collection("posts").orderBy("date", "desc")
-    .onSnapshot(snapshot => {
-      posts.innerHTML = "";
-
-      snapshot.forEach(doc => {
-        const p = doc.data();
-
-        posts.innerHTML += `
+  db.collection("posts").orderBy("created","desc")
+  .onSnapshot(snapshot => {
+    posts.innerHTML = "";
+    snapshot.forEach(doc => {
+      const p = doc.data();
+      posts.innerHTML += `
         <div class="post">
-          <h2>${p.title}</h2>
-          <small>${p.author}</small>
+          <h3>${p.title}</h3>
           <p>${p.content}</p>
-
-          <input id="c-${doc.id}" placeholder="Комментарий">
-          <button onclick="addComment('${doc.id}')">💬 Отправить</button>
-
-          ${auth.currentUser.email === ADMIN_EMAIL
-            ? `<button class="admin" onclick="deletePost('${doc.id}')">🗑 Удалить</button>`
-            : ""}
-
-          <div id="comments-${doc.id}"></div>
-        </div>
-        `;
-
-        loadComments(doc.id);
-      });
+          <small>✍ ${p.author}</small>
+        </div>`;
     });
-}
-
-function deletePost(id) {
-  if (confirm("Удалить статью?")) {
-    db.collection("posts").doc(id).delete();
-  }
-}
-
-/* COMMENTS */
-function addComment(postId) {
-  const input = document.getElementById("c-" + postId);
-  if (!input.value) return;
-
-  db.collection("comments").add({
-    post: postId,
-    text: input.value,
-    author: auth.currentUser.email
   });
-
-  input.value = "";
-}
-
-function loadComments(postId) {
-  db.collection("comments")
-    .where("post", "==", postId)
-    .onSnapshot(snapshot => {
-      const box = document.getElementById("comments-" + postId);
-      box.innerHTML = "";
-
-      snapshot.forEach(doc => {
-        const c = doc.data();
-        box.innerHTML += `
-          <div class="comment">
-            <b>${c.author}:</b> ${c.text}
-            ${auth.currentUser.email === ADMIN_EMAIL
-              ? `<button onclick="deleteComment('${doc.id}')">🗑</button>`
-              : ""}
-          </div>
-        `;
-      });
-    });
-}
-
-function deleteComment(id) {
-  db.collection("comments").doc(id).delete();
 }
 </script>
 
