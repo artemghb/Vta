@@ -23,14 +23,14 @@ header {
   margin: auto;
   padding: 15px;
 }
-input, textarea, button {
+input, textarea, button, select {
   width: 100%;
   padding: 10px;
   margin-bottom: 10px;
   border-radius: 8px;
   border: none;
 }
-input, textarea {
+input, textarea, select {
   background: #1e1e2e;
   color: white;
 }
@@ -53,6 +53,16 @@ button:hover { background: #7777ff; }
 .delete { background: #ff4b4b; }
 .edit { background: #ffa94b; color: black; }
 .hidden { display: none; }
+.badge {
+  font-size: 12px;
+  padding: 3px 6px;
+  background: #444;
+  border-radius: 5px;
+  margin-left: 5px;
+}
+.admin { background: crimson; }
+.public { background: green; }
+.private { background: gray; }
 </style>
 </head>
 <body>
@@ -64,35 +74,49 @@ button:hover { background: #7777ff; }
 <!-- АВТОРИЗАЦИЯ -->
 <div id="auth">
   <h3>Вход</h3>
-  <input id="loginName" placeholder="Имя пользователя">
+  <input id="loginName" placeholder="Имя">
   <input id="loginPass" type="password" placeholder="Пароль">
   <button onclick="login()">Войти</button>
 
   <h3>Регистрация</h3>
-  <input id="regName" placeholder="Имя пользователя">
+  <input id="regName" placeholder="Имя">
   <input id="regPass" type="password" placeholder="Пароль">
   <button onclick="register()">Зарегистрироваться</button>
 </div>
 
-<!-- АККАУНТ -->
+<!-- ПРИЛОЖЕНИЕ -->
 <div id="app" class="hidden">
-  <h3>👤 Аккаунт</h3>
-  <p>Вы вошли как: <b id="userName"></b></p>
-  <button onclick="logout()">Выйти</button>
 
-  <hr>
+<h3>
+👤 Аккаунт: <b id="userName"></b>
+<span id="roleBadge" class="badge"></span>
+</h3>
+<button onclick="logout()">Выйти</button>
 
-  <h3>Создать статью</h3>
-  <input id="title" placeholder="Заголовок">
-  <textarea id="content" rows="5" placeholder="Текст статьи"></textarea>
-  <button onclick="addPost()">Опубликовать</button>
+<hr>
 
-  <hr>
+<h3>Создать статью</h3>
+<input id="title" placeholder="Заголовок">
+<textarea id="content" rows="5" placeholder="Текст статьи"></textarea>
 
-  <h3>Мои статьи</h3>
-  <div id="posts"></div>
+<select id="visibility">
+  <option value="public">🌍 Публичная</option>
+  <option value="private">🔒 Приватная</option>
+</select>
+
+<button onclick="addPost()">Опубликовать</button>
+
+<hr>
+
+<h3>🌍 Публичные статьи</h3>
+<div id="publicPosts"></div>
+
+<hr>
+
+<h3>📂 Мои статьи</h3>
+<div id="myPosts"></div>
+
 </div>
-
 </div>
 
 <script>
@@ -100,6 +124,10 @@ let users = JSON.parse(localStorage.getItem("users")) || [];
 let posts = JSON.parse(localStorage.getItem("posts")) || [];
 let currentUser = JSON.parse(localStorage.getItem("currentUser"));
 let editIndex = null;
+
+function isAdmin() {
+  return currentUser === "admin";
+}
 
 function save() {
   localStorage.setItem("users", JSON.stringify(users));
@@ -111,9 +139,7 @@ function register() {
   const pass = regPass.value.trim();
   if (!name || !pass) return alert("Заполни поля");
 
-  if (users.find(u => u.name === name)) {
-    return alert("Имя занято");
-  }
+  if (users.find(u => u.name === name)) return alert("Имя занято");
 
   users.push({ name, pass });
   save();
@@ -123,7 +149,6 @@ function register() {
 function login() {
   const name = loginName.value.trim();
   const pass = loginPass.value.trim();
-
   const user = users.find(u => u.name === name && u.pass === pass);
   if (!user) return alert("Неверные данные");
 
@@ -142,26 +167,24 @@ function init() {
   auth.classList.add("hidden");
   app.classList.remove("hidden");
   userName.textContent = currentUser;
+  roleBadge.textContent = isAdmin() ? "ADMIN" : "USER";
+  roleBadge.className = "badge " + (isAdmin() ? "admin" : "");
   render();
 }
 
 function addPost() {
-  const title = document.getElementById("title").value.trim();
-  const content = document.getElementById("content").value.trim();
-  if (!title || !content) return alert("Заполни всё");
+  const t = title.value.trim();
+  const c = content.value.trim();
+  const v = visibility.value;
+  if (!t || !c) return alert("Заполни всё");
 
-  if (editIndex === null) {
-    posts.unshift({
-      user: currentUser,
-      title,
-      content,
-      date: new Date().toLocaleString()
-    });
-  } else {
-    posts[editIndex].title = title;
-    posts[editIndex].content = content;
-    editIndex = null;
-  }
+  posts.unshift({
+    user: currentUser,
+    title: t,
+    content: c,
+    visibility: v,
+    date: new Date().toLocaleString()
+  });
 
   title.value = "";
   content.value = "";
@@ -170,6 +193,7 @@ function addPost() {
 }
 
 function deletePost(i) {
+  if (!isAdmin() && posts[i].user !== currentUser) return;
   if (confirm("Удалить статью?")) {
     posts.splice(i, 1);
     save();
@@ -177,35 +201,41 @@ function deletePost(i) {
   }
 }
 
-function editPost(i) {
-  title.value = posts[i].title;
-  content.value = posts[i].content;
-  editIndex = i;
-}
-
 function render() {
-  postsDiv = document.getElementById("posts");
-  postsDiv.innerHTML = "";
+  publicPosts.innerHTML = "";
+  myPosts.innerHTML = "";
 
-  posts
-    .map((p, i) => ({ ...p, i }))
-    .filter(p => p.user === currentUser)
-    .forEach(p => {
-      postsDiv.innerHTML += `
+  posts.forEach((p, i) => {
+
+    // Публичные
+    if (p.visibility === "public") {
+      publicPosts.innerHTML += `
+      <div class="post">
+        <h2>${p.title}</h2>
+        <small>${p.date} • ${p.user}</small>
+        <span class="badge public">PUBLIC</span>
+        <p>${p.content.replace(/\n/g,"<br>")}</p>
+        ${isAdmin() ? `<button class="delete" onclick="deletePost(${i})">🗑</button>` : ""}
+      </div>`;
+    }
+
+    // Мои
+    if (p.user === currentUser) {
+      myPosts.innerHTML += `
       <div class="post">
         <h2>${p.title}</h2>
         <small>${p.date}</small>
-        <p>${p.content.replace(/\n/g, "<br>")}</p>
-        <div class="actions">
-          <button class="edit" onclick="editPost(${p.i})">✏</button>
-          <button class="delete" onclick="deletePost(${p.i})">🗑</button>
-        </div>
+        <span class="badge ${p.visibility}">${p.visibility.toUpperCase()}</span>
+        <p>${p.content.replace(/\n/g,"<br>")}</p>
+        <button class="delete" onclick="deletePost(${i})">🗑</button>
       </div>`;
-    });
+    }
+
+  });
 }
 
 init();
 </script>
 
 </body>
-</html>
+  </html>
